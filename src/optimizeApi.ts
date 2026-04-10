@@ -1,3 +1,5 @@
+import { authHeaders } from './apiAuth'
+
 const API_BASE_URL = 'http://127.0.0.1:4176'
 const OPTIMIZE_URL = `${API_BASE_URL}/api/optimize`
 
@@ -6,9 +8,7 @@ export type PromptReturnStyle = 'clarity' | 'technical' | 'execution' | 'strateg
 export async function optimizePromptRemotely(rawPrompt: string, returnStyle: PromptReturnStyle): Promise<string> {
   const response = await fetch(OPTIMIZE_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders(),
     body: JSON.stringify({ rawPrompt, returnStyle }),
   })
 

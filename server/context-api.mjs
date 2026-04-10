@@ -10,9 +10,21 @@ function listFallbackSessions() {
   ]
 }
 
+import crypto from 'node:crypto'
+
 const HOST = '127.0.0.1'
 const PORT = 4176
 const ALLOWED_ORIGIN = 'http://127.0.0.1:4175'
+
+// Auth token: set PC_AUTH_TOKEN env var, or auto-generate one at startup
+const PC_AUTH_TOKEN = process.env.PC_AUTH_TOKEN || crypto.randomBytes(32).toString('hex')
+
+function checkAuth(req) {
+  const auth = req.headers['authorization']
+  if (!auth) return false
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : auth
+  return token === PC_AUTH_TOKEN
+}
 
 function sendJson(res, status, payload) {
   res.writeHead(status, {
@@ -94,9 +106,19 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
         'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       })
       return res.end()
+    }
+
+    // Health endpoint is unauthenticated
+    if (req.url === '/health' && req.method === 'GET') {
+      return sendJson(res, 200, { ok: true })
+    }
+
+    // All other endpoints require auth
+    if (!checkAuth(req)) {
+      return sendJson(res, 401, { error: 'Unauthorized' })
     }
 
     if (req.url === '/api/context/task-board' && req.method === 'GET') {
@@ -138,10 +160,6 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, await formatSendResult(payload))
     }
 
-    if (req.url === '/health' && req.method === 'GET') {
-      return sendJson(res, 200, { ok: true })
-    }
-
     return sendJson(res, 404, { error: 'Not found' })
   } catch (error) {
     return sendJson(res, 500, { error: error instanceof Error ? error.message : 'Unknown server error' })
@@ -150,4 +168,8 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Prompt Control context API listening on http://${HOST}:${PORT}`)
+  if (!process.env.PC_AUTH_TOKEN) {
+    console.log(`Auth token (auto-generated): ${PC_AUTH_TOKEN}`)
+    console.log('Set PC_AUTH_TOKEN env var for a stable token across restarts.')
+  }
 })

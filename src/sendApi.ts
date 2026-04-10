@@ -14,6 +14,8 @@ export type SendPromptResult = {
   }
 }
 
+import { authHeaders } from './apiAuth'
+
 const API_BASE_URL = 'http://127.0.0.1:4176'
 const SEND_URL = `${API_BASE_URL}/api/send`
 const LEGACY_SEND_URL = `${API_BASE_URL}/send`
@@ -21,9 +23,7 @@ const LEGACY_SEND_URL = `${API_BASE_URL}/send`
 async function postJson(url: string, payload: SendPromptPayload) {
   return fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   })
 }
