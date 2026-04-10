@@ -10,7 +10,7 @@ function resolveBoardDbPath() {
 }
 
 function openDb(dbPath) {
-  const db = new sqlite3.Database(dbPath)
+  const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY)
   return {
     db,
     get: promisify(db.get.bind(db)),
