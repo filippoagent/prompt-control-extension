@@ -1,0 +1,92 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #090d18;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  background: #090d18;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+select,
+textarea,
+button {
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+button:hover:not(:disabled),
+select:hover,
+textarea:hover {
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+textarea::placeholder,
+input::placeholder {
+  color: rgba(148, 163, 184, 0.72);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.42);
+}
+
+@media (max-width: 1100px) {
+  .prompt-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero-stack {
+    flex-direction: column !important;
+  }
+
+  .field-grid,
+  .metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .app-shell {
+    padding: 24px 16px 40px !important;
+  }
+
+  .hero-title {
+    font-size: 2.3rem !important;
+  }
+}

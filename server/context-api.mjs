@@ -2,6 +2,7 @@ import http from 'node:http'
 import { loadTaskBoardSummary } from './task-context-store.mjs'
 import { sendPromptToGatewayHttp } from './gateway-http-bridge.mjs'
 import { fetchGatewaySessions } from './gateway-rpc-http.mjs'
+import { optimizePromptViaSkill } from './optimize-service.mjs'
 
 function listFallbackSessions() {
   return [
@@ -109,6 +110,26 @@ const server = http.createServer(async (req, res) => {
       } catch {
         return sendJson(res, 200, listFallbackSessions())
       }
+    }
+
+    if (req.url === '/api/optimize' && req.method === 'POST') {
+      const payload = await readJsonBody(req)
+      if (typeof payload.rawPrompt !== 'string' || !payload.rawPrompt.trim()) {
+        return sendJson(res, 400, { error: 'rawPrompt is required' })
+      }
+
+      const result = await optimizePromptViaSkill({
+        rawPrompt: payload.rawPrompt,
+        returnStyle: typeof payload.returnStyle === 'string' ? payload.returnStyle : 'technical',
+      })
+
+      return sendJson(res, 200, {
+        optimizedPrompt: result.optimizedPrompt,
+        success: result.success,
+        error: result.error || null,
+        appliedTechniques: result.appliedTechniques || [],
+        assessment: result.assessment || null,
+      })
     }
 
     if ((req.url === '/api/send' || req.url === '/send') && req.method === 'POST') {

@@ -1,8 +1,38 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { fetchSessions, fetchTaskContext, type SessionSummary, type TaskContextSummary } from './contextApi'
-import { composeSendPayload } from './composeSendPayload'
 import { sendPrompt } from './sendApi'
-import { rewritePrompt, type PromptMode } from './rewriteEngine'
+import { optimizePromptRemotely, type PromptReturnStyle } from './optimizeApi'
+
+const shellBackground = {
+  background: `
+    radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.26), transparent 28%),
+    radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.18), transparent 24%),
+    radial-gradient(circle at 50% 100%, rgba(236, 72, 153, 0.12), transparent 30%),
+    linear-gradient(180deg, #0b1020 0%, #090d18 100%)
+  `,
+  minHeight: '100vh',
+  color: '#f8fafc',
+}
+
+const panelStyle = {
+  background: 'rgba(15, 23, 42, 0.72)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  boxShadow: '0 24px 80px rgba(2, 6, 23, 0.42)',
+  backdropFilter: 'blur(18px)',
+  WebkitBackdropFilter: 'blur(18px)',
+}
+
+const pillBase = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  borderRadius: 999,
+  padding: '8px 14px',
+  border: '1px solid rgba(255,255,255,0.1)',
+  background: 'rgba(255,255,255,0.05)',
+  color: '#cbd5e1',
+  fontSize: 13,
+}
 
 export function App() {
   const [rawPrompt, setRawPrompt] = useState('')
@@ -11,9 +41,11 @@ export function App() {
   const [selectedSessionKey, setSelectedSessionKey] = useState('agent:main:main')
   const [contextError, setContextError] = useState<string | null>(null)
   const [sessionsError, setSessionsError] = useState<string | null>(null)
-  const [mode, setMode] = useState<PromptMode>('smart')
-  const [includeWorkContext, setIncludeWorkContext] = useState(true)
-  const [suggestCommands, setSuggestCommands] = useState(true)
+  const [editableRefinedPrompt, setEditableRefinedPrompt] = useState('')
+  const [optimizedPrompt, setOptimizedPrompt] = useState('')
+  const [returnStyle, setReturnStyle] = useState<PromptReturnStyle>('technical')
+  const [hasManualEdits, setHasManualEdits] = useState(false)
+  const [isOptimizing, setIsOptimizing] = useState(false)
   const [sendStatus, setSendStatus] = useState<string | null>(null)
   const [sendError, setSendError] = useState<string | null>(null)
   const [lastDeliveryMode, setLastDeliveryMode] = useState<'control-chat' | 'clipboard-fallback' | null>(null)
@@ -54,21 +86,17 @@ export function App() {
       })
   }, [])
 
-  const rewriteResult = useMemo(
-    () => rewritePrompt({
-      rawPrompt,
-      mode,
-      includeWorkContext,
-      suggestCommands,
-      taskContext,
-    }),
-    [rawPrompt, mode, includeWorkContext, suggestCommands, taskContext]
-  )
+  useEffect(() => {
+    if (!rawPrompt.trim()) {
+      setOptimizedPrompt('')
+      setEditableRefinedPrompt('')
+      setHasManualEdits(false)
+    }
+  }, [rawPrompt])
 
-  const sendPayload = useMemo(
-    () => composeSendPayload({ rawPrompt, mode, rewriteResult }),
-    [rawPrompt, mode, rewriteResult]
-  )
+  const finalPrompt = editableRefinedPrompt
+
+  const selectedSessionLabel = sessions.find((session) => session.sessionKey === selectedSessionKey)?.label ?? 'Main session'
 
   async function tryCopyToClipboard(text: string): Promise<boolean> {
     try {
@@ -80,25 +108,25 @@ export function App() {
   }
 
   async function handleCopy() {
-    const copied = await tryCopyToClipboard(sendPayload)
+    const copied = await tryCopyToClipboard(finalPrompt)
     if (copied) {
       setLastDeliveryMode('clipboard-fallback')
       setSendError(null)
-      setSendStatus('Copied prompt to clipboard.')
+      setSendStatus('Copied refined prompt to clipboard.')
       return
     }
-    setSendStatus('Clipboard access was denied. You can still copy the prompt manually from the box below.')
+    setSendStatus('Clipboard access was denied. You can still copy the refined prompt manually.')
     setSendError(null)
   }
 
   async function handleSend() {
-    if (!sendPayload.trim()) return
+    if (!finalPrompt.trim()) return
     setIsSending(true)
     setSendStatus(null)
     setSendError(null)
     try {
       const result = await sendPrompt({
-        prompt: sendPayload,
+        prompt: finalPrompt,
         sessionKey: selectedSessionKey,
       })
       setLastDeliveryMode(result.delivery)
@@ -107,7 +135,7 @@ export function App() {
         setSendStatus(
           copied
             ? (result.detail || 'Prompt prepared and copied to clipboard.')
-            : `${result.detail || 'Prompt prepared.'} Clipboard access was denied, so copy it manually from the prompt box below.`
+            : `${result.detail || 'Prompt prepared.'} Clipboard access was denied, so copy the refined prompt manually.`
         )
       } else {
         setSendStatus(result.detail || 'Prompt sent to Zoro.')
@@ -121,118 +149,263 @@ export function App() {
     }
   }
 
+  function handleEditableChange(next: string) {
+    setEditableRefinedPrompt(next)
+    setHasManualEdits(true)
+  }
+
+  async function handleOptimize() {
+    if (!rawPrompt.trim()) return
+    setIsOptimizing(true)
+    setSendStatus(null)
+    setSendError(null)
+    try {
+      const result = await optimizePromptRemotely(rawPrompt, returnStyle)
+      setOptimizedPrompt(result)
+      setEditableRefinedPrompt(result)
+      setHasManualEdits(false)
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : 'Failed to optimize prompt')
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
+  function resetRefinedPrompt() {
+    setEditableRefinedPrompt(optimizedPrompt)
+    setHasManualEdits(false)
+  }
+
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', margin: '0 auto', maxWidth: 980, padding: 24 }}>
-      <h1>Prompt Control Extension</h1>
-      <p>Write naturally, refine with context, preview before sending to Zoro.</p>
-
-      <div style={{ display: 'grid', gap: 16 }}>
-        <label>
-          <div>Raw prompt</div>
-          <textarea
-            value={rawPrompt}
-            onChange={(e) => setRawPrompt(e.target.value)}
-            rows={10}
-            style={{ width: '100%', marginTop: 8 }}
-            placeholder="Write naturally here..."
-          />
-        </label>
-
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label>
-            Mode:{' '}
-            <select value={mode} onChange={(e) => setMode(e.target.value as PromptMode)}>
-              <option value="quick">Quick</option>
-              <option value="smart">Smart</option>
-              <option value="deep">Deep</option>
-            </select>
-          </label>
-
-          <label>
-            Session:{' '}
-            <select value={selectedSessionKey} onChange={(e) => setSelectedSessionKey(e.target.value)}>
-              {sessions.length === 0 ? (
-                <option value="agent:main:main">Main session (fallback)</option>
-              ) : sessions.map((session) => (
-                <option key={session.sessionKey} value={session.sessionKey}>{session.label}</option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <input type="checkbox" checked={includeWorkContext} onChange={(e) => setIncludeWorkContext(e.target.checked)} /> Include current work context
-          </label>
-
-          <label>
-            <input type="checkbox" checked={suggestCommands} onChange={(e) => setSuggestCommands(e.target.checked)} /> Suggest command/workflow style
-          </label>
-        </div>
-
-        {sessionsError ? <div style={{ color: '#b91c1c' }}>Session list unavailable: {sessionsError}</div> : null}
-
-        <div>
-          <h2>Task board context</h2>
-          <div style={{ background: '#f4f4f5', padding: 12, borderRadius: 12, marginBottom: 16 }}>
-            {contextError ? (
-              <div>Context unavailable: {contextError}</div>
-            ) : taskContext ? (
-              <>
-                <div><strong>Current projects:</strong> {taskContext.currentProjects.join(', ') || 'None'}</div>
-                <div><strong>Active tasks:</strong> {taskContext.activeTasks.length}</div>
-                {taskContext.activeTasks.slice(0, 3).map((task) => (
-                  <div key={task.id}>- {task.title}{task.project ? ` (${task.project})` : ''}</div>
-                ))}
-              </>
-            ) : (
-              <div>Loading task context...</div>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <h2>Refined prompt preview</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', background: '#111', color: '#eee', padding: 16, borderRadius: 12, minHeight: 180 }}>
-            {rewriteResult.refinedPrompt || 'Your refined prompt preview will appear here.'}
-          </pre>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => void handleSend()} disabled={isSending || !sendPayload.trim() || !selectedSessionKey}>
-            {isSending ? 'Sending...' : 'Send prompt'}
-          </button>
-          <button onClick={() => void handleCopy()} disabled={!sendPayload.trim()}>
-            Copy prompt
-          </button>
-          {lastDeliveryMode ? (
-            <div style={{ color: '#52525b' }}>
-              Delivery mode: {lastDeliveryMode === 'control-chat' ? 'control chat' : 'clipboard fallback'}
+    <div style={shellBackground}>
+      <div className="app-shell" style={{ margin: '0 auto', maxWidth: 1400, padding: '40px 24px 56px' }}>
+        <header style={{ ...panelStyle, borderRadius: 32, padding: 28, marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(124,58,237,0.10), transparent 45%, rgba(59,130,246,0.08))', pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ ...pillBase, width: 'fit-content', background: 'rgba(124,58,237,0.14)', border: '1px solid rgba(167,139,250,0.28)', color: '#ddd6fe' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 18px rgba(167,139,250,0.8)' }} />
+              Prompt Control
             </div>
-          ) : null}
-          {sendStatus ? <div style={{ color: '#166534' }}>{sendStatus}</div> : null}
-          {sendError ? <div style={{ color: '#b91c1c' }}>{sendError}</div> : null}
-        </div>
-
-        <div>
-          <h2>Prompt to send</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', background: '#f4f4f5', color: '#111', padding: 16, borderRadius: 12, minHeight: 120 }}>
-            {sendPayload || 'Nothing to send yet.'}
-          </pre>
-        </div>
-
-        <div>
-          <h2>Helper notes</h2>
-          <div style={{ background: '#f4f4f5', padding: 12, borderRadius: 12 }}>
-            <div><strong>Context used:</strong> {rewriteResult.contextUsed.join(', ') || 'None'}</div>
-            {rewriteResult.notes.length ? (
-              <ul>
-                {rewriteResult.notes.map((note) => <li key={note}>{note}</li>)}
-              </ul>
-            ) : (
-              <div>No special notes.</div>
-            )}
+            <div className="hero-stack" style={{ display: 'flex', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
+              <div style={{ maxWidth: 760 }}>
+                <h1 className="hero-title" style={{ margin: 0, fontSize: '3.1rem', lineHeight: 1.02, letterSpacing: '-0.04em' }}>Prompt Control</h1>
+                <p style={{ margin: '14px 0 0', color: '#cbd5e1', fontSize: 18, lineHeight: 1.7 }}>
+                  Write naturally. Let the optimizer refine it. Send it to Zoro.
+                </p>
+              </div>
+              <div style={{ display: 'grid', gap: 12, minWidth: 280, alignContent: 'start' }}>
+                <StatusPill label="Target session" value={selectedSessionLabel} tone="violet" />
+                <StatusPill label="Delivery" value={lastDeliveryMode === 'clipboard-fallback' ? 'Clipboard' : 'Control chat'} tone="blue" />
+                <StatusPill label="Optimization" value={isOptimizing ? 'Optimizing…' : optimizedPrompt ? 'Done' : 'Idle'} tone="neutral" />
+                <StatusPill label="Style" value={returnStyle} tone="neutral" />
+              </div>
+            </div>
           </div>
+        </header>
+
+        <div className="prompt-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(360px, 0.95fr)', gap: 24, alignItems: 'start' }}>
+          <section style={{ display: 'grid', gap: 24 }}>
+            <Panel title="Compose" subtitle="Write naturally. The optimizer will refine structure and clarity.">
+              <textarea
+                value={rawPrompt}
+                onChange={(e) => setRawPrompt(e.target.value)}
+                rows={16}
+                style={textAreaStyle}
+                placeholder="Tell Zoro what you actually want, in your own words..."
+              />
+
+              <div className="field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14, marginTop: 18 }}>
+                <Field label="Return style">
+                  <select value={returnStyle} onChange={(e) => setReturnStyle(e.target.value as PromptReturnStyle)} style={fieldStyle}>
+                    <option value="clarity">Clarity</option>
+                    <option value="technical">Technical</option>
+                    <option value="execution">Execution</option>
+                    <option value="strategic-structured">Strategic + Structured</option>
+                    <option value="creative">Creative</option>
+                  </select>
+                </Field>
+                <Field label="Send to session">
+                  <select value={selectedSessionKey} onChange={(e) => setSelectedSessionKey(e.target.value)} style={fieldStyle}>
+                    {sessions.length === 0 ? (
+                      <option value="agent:main:main">Main session (fallback)</option>
+                    ) : sessions.map((session) => (
+                      <option key={session.sessionKey} value={session.sessionKey}>{session.label}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
+                <ActionButton onClick={() => void handleOptimize()} disabled={isOptimizing || !rawPrompt.trim()} primary>
+                  {isOptimizing ? 'Optimizing…' : 'Optimize'}
+                </ActionButton>
+              </div>
+
+              {sessionsError ? <InlineNotice tone="error">Session list unavailable: {sessionsError}</InlineNotice> : null}
+              {contextError ? <InlineNotice tone="error">Task context unavailable: {contextError}</InlineNotice> : null}
+            </Panel>
+          </section>
+
+          <aside style={{ display: 'grid', gap: 24 }}>
+            <Panel title="Optimized prompt" subtitle="Edit before sending. The final version is what gets delivered.">
+              <textarea
+                value={editableRefinedPrompt}
+                onChange={(e) => handleEditableChange(e.target.value)}
+                rows={18}
+                style={refinedTextAreaStyle}
+                placeholder="Your optimized prompt will appear here, and you can edit it before sending."
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
+                <div style={{ color: hasManualEdits ? '#ddd6fe' : '#94a3b8', fontSize: 13 }}>
+                  {hasManualEdits ? 'Manual edits active.' : isOptimizing ? 'Optimizing…' : optimizedPrompt ? 'Using optimized version.' : 'Click Optimize to generate a refined prompt.'}
+                </div>
+                <ActionButton onClick={resetRefinedPrompt} disabled={!hasManualEdits}>
+                  Reset
+                </ActionButton>
+              </div>
+            </Panel>
+
+            <Panel title="Send" subtitle="Deliver to Zoro or copy to clipboard.">
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <ActionButton onClick={() => void handleSend()} disabled={isSending || !finalPrompt.trim() || !selectedSessionKey} primary>
+                  {isSending ? 'Sending…' : 'Send to Zoro'}
+                </ActionButton>
+                <ActionButton onClick={() => void handleCopy()} disabled={!finalPrompt.trim()}>
+                  Copy
+                </ActionButton>
+              </div>
+
+              {sendStatus ? <InlineNotice tone="success">{sendStatus}</InlineNotice> : null}
+              {sendError ? <InlineNotice tone="error">{sendError}</InlineNotice> : null}
+            </Panel>
+          </aside>
         </div>
       </div>
     </div>
   )
+}
+
+// ============================================================================
+// UI Components
+// ============================================================================
+
+function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <section style={{ ...panelStyle, borderRadius: 28, padding: 24 }}>
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 12, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#94a3b8' }}>{title}</div>
+        <div style={{ marginTop: 8, color: '#cbd5e1', lineHeight: 1.7, fontSize: 15 }}>{subtitle}</div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'grid', gap: 8 }}>
+      <span style={{ fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#94a3b8' }}>{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function ActionButton({ children, onClick, disabled, primary = false }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; primary?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        borderRadius: 999,
+        padding: '12px 18px',
+        letterSpacing: '0.01em',
+        border: primary ? '1px solid rgba(167,139,250,0.35)' : '1px solid rgba(255,255,255,0.1)',
+        background: disabled
+          ? 'rgba(255,255,255,0.06)'
+          : primary
+            ? 'linear-gradient(135deg, rgba(124,58,237,0.38), rgba(59,130,246,0.22))'
+            : 'rgba(255,255,255,0.06)',
+        color: disabled ? '#64748b' : '#f8fafc',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontWeight: 600,
+        boxShadow: primary && !disabled ? '0 18px 36px rgba(76, 29, 149, 0.25)' : 'none',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function InlineNotice({ children, tone }: { children: React.ReactNode; tone: 'success' | 'error' | 'neutral' }) {
+  const palette = tone === 'success'
+    ? { color: '#bbf7d0', border: 'rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.10)' }
+    : tone === 'error'
+      ? { color: '#fecaca', border: 'rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.10)' }
+      : { color: '#cbd5e1', border: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }
+
+  return (
+    <div style={{ marginTop: 16, borderRadius: 18, padding: '12px 14px', border: `1px solid ${palette.border}`, background: palette.background, color: palette.color }}>
+      {children}
+    </div>
+  )
+}
+
+function StatusPill({ label, value, tone }: { label: string; value: string; tone: 'violet' | 'blue' | 'neutral' }) {
+  const palette = tone === 'violet'
+    ? { background: 'rgba(124,58,237,0.16)', border: 'rgba(167,139,250,0.25)', color: '#ede9fe' }
+    : tone === 'blue'
+      ? { background: 'rgba(59,130,246,0.14)', border: 'rgba(125,211,252,0.22)', color: '#dbeafe' }
+      : { background: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.08)', color: '#e2e8f0' }
+
+  return (
+    <div style={{ borderRadius: 20, padding: '12px 14px', border: `1px solid ${palette.border}`, background: palette.background }}>
+      <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#94a3b8' }}>{label}</div>
+      <div style={{ marginTop: 6, color: palette.color, fontWeight: 600 }}>{value}</div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Styles
+// ============================================================================
+
+const fieldStyle: React.CSSProperties = {
+  width: '100%',
+  borderRadius: 18,
+  border: '1px solid rgba(255,255,255,0.10)',
+  background: 'rgba(255,255,255,0.05)',
+  color: '#f8fafc',
+  padding: '14px 16px',
+  outline: 'none',
+}
+
+const textAreaStyle: React.CSSProperties = {
+  width: '100%',
+  borderRadius: 24,
+  border: '1px solid rgba(255,255,255,0.10)',
+  background: 'rgba(255,255,255,0.05)',
+  color: '#f8fafc',
+  padding: 18,
+  outline: 'none',
+  resize: 'vertical',
+  lineHeight: 1.7,
+  fontSize: 16,
+  boxSizing: 'border-box',
+}
+
+const refinedTextAreaStyle: React.CSSProperties = {
+  width: '100%',
+  borderRadius: 24,
+  border: '1px solid rgba(167,139,250,0.18)',
+  background: 'rgba(2, 6, 23, 0.88)',
+  color: '#e2e8f0',
+  padding: 18,
+  outline: 'none',
+  resize: 'vertical',
+  lineHeight: 1.75,
+  fontSize: 14,
+  minHeight: 320,
+  boxSizing: 'border-box',
 }
