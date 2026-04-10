@@ -1,0 +1,11 @@
+{
+  "skipChecksForDocsOnly": false,
+  "docsOnlyPatterns": ["*.md", "docs/**"],
+  "checks": [
+    {
+      "name": "secrets-scanner",
+      "patterns": ["**/*"],
+      "command": ["python3", "/Users/assistant/.openclaw/workspace/scripts/scan-secrets.py"]
+    }
+  ]
+}
