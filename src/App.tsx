@@ -1,25 +1,25 @@
 import { useState, useEffect } from 'react'
-import { fetchSessions, fetchTaskContext, type SessionSummary, type TaskContextSummary } from './contextApi'
+import { fetchPromptPacks, fetchSessions, fetchTaskContext, type PromptPackSummary, type SessionSummary, type TaskContextSummary } from './contextApi'
 import { sendPrompt } from './sendApi'
 import { optimizePromptRemotely, type PromptReturnStyle } from './optimizeApi'
 
 const shellBackground = {
   background: `
-    radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.26), transparent 28%),
-    radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.18), transparent 24%),
-    radial-gradient(circle at 50% 100%, rgba(236, 72, 153, 0.12), transparent 30%),
-    linear-gradient(180deg, #0b1020 0%, #090d18 100%)
+    radial-gradient(circle at 18% 18%, rgba(168, 85, 247, 0.20), transparent 28%),
+    radial-gradient(circle at 82% 0%, rgba(96, 165, 250, 0.16), transparent 24%),
+    radial-gradient(circle at 50% 100%, rgba(244, 114, 182, 0.10), transparent 30%),
+    linear-gradient(180deg, #131a2b 0%, #0f1726 100%)
   `,
   minHeight: '100vh',
   color: '#f8fafc',
 }
 
 const panelStyle = {
-  background: 'rgba(15, 23, 42, 0.72)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  boxShadow: '0 24px 80px rgba(2, 6, 23, 0.42)',
-  backdropFilter: 'blur(18px)',
-  WebkitBackdropFilter: 'blur(18px)',
+  background: 'rgba(30, 41, 59, 0.68)',
+  border: '1px solid rgba(255,255,255,0.10)',
+  boxShadow: '0 20px 60px rgba(15, 23, 42, 0.28)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
 }
 
 const pillBase = {
@@ -38,9 +38,12 @@ export function App() {
   const [rawPrompt, setRawPrompt] = useState('')
   const [taskContext, setTaskContext] = useState<TaskContextSummary | null>(null)
   const [sessions, setSessions] = useState<SessionSummary[]>([])
+  const [promptPacks, setPromptPacks] = useState<PromptPackSummary[]>([])
+  const [selectedPromptPackId, setSelectedPromptPackId] = useState('')
   const [selectedSessionKey, setSelectedSessionKey] = useState('agent:main:main')
   const [contextError, setContextError] = useState<string | null>(null)
   const [sessionsError, setSessionsError] = useState<string | null>(null)
+  const [promptPacksError, setPromptPacksError] = useState<string | null>(null)
   const [editableRefinedPrompt, setEditableRefinedPrompt] = useState('')
   const [optimizedPrompt, setOptimizedPrompt] = useState('')
   const [returnStyle, setReturnStyle] = useState<PromptReturnStyle>('technical')
@@ -84,6 +87,15 @@ export function App() {
       .catch((error) => {
         setSessionsError(error instanceof Error ? error.message : 'Failed to load sessions')
       })
+
+    void fetchPromptPacks()
+      .then((data) => {
+        setPromptPacks(data)
+        setPromptPacksError(null)
+      })
+      .catch((error) => {
+        setPromptPacksError(error instanceof Error ? error.message : 'Failed to load prompt packs')
+      })
   }, [])
 
   useEffect(() => {
@@ -97,6 +109,7 @@ export function App() {
   const finalPrompt = editableRefinedPrompt
 
   const selectedSessionLabel = sessions.find((session) => session.sessionKey === selectedSessionKey)?.label ?? 'Main session'
+  const selectedPromptPack = promptPacks.find((pack) => pack.id === selectedPromptPackId) ?? null
 
   async function tryCopyToClipboard(text: string): Promise<boolean> {
     try {
@@ -160,7 +173,11 @@ export function App() {
     setSendStatus(null)
     setSendError(null)
     try {
-      const result = await optimizePromptRemotely(rawPrompt, returnStyle)
+      const composedPrompt = selectedPromptPack
+        ? `${selectedPromptPack.prompt}\n\nUser request:\n${rawPrompt.trim()}`
+        : rawPrompt
+
+      const result = await optimizePromptRemotely(composedPrompt, returnStyle)
       setOptimizedPrompt(result)
       setEditableRefinedPrompt(result)
       setHasManualEdits(false)
@@ -178,22 +195,22 @@ export function App() {
 
   return (
     <div style={shellBackground}>
-      <div className="app-shell" style={{ margin: '0 auto', maxWidth: 1400, padding: '40px 24px 56px' }}>
-        <header style={{ ...panelStyle, borderRadius: 32, padding: 28, marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
+      <div className="app-shell" style={{ margin: '0 auto', maxWidth: 1360, padding: '24px 20px 40px' }}>
+        <header style={{ ...panelStyle, borderRadius: 22, padding: 14, marginBottom: 14, position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(124,58,237,0.10), transparent 45%, rgba(59,130,246,0.08))', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <div style={{ ...pillBase, width: 'fit-content', background: 'rgba(124,58,237,0.14)', border: '1px solid rgba(167,139,250,0.28)', color: '#ddd6fe' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 18px rgba(167,139,250,0.8)' }} />
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ ...pillBase, width: 'fit-content', padding: '6px 10px', fontSize: 11, background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.22)', color: '#ddd6fe' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 12px rgba(167,139,250,0.6)' }} />
               Prompt Control
             </div>
-            <div className="hero-stack" style={{ display: 'flex', justifyContent: 'space-between', gap: 24, flexWrap: 'wrap' }}>
-              <div style={{ maxWidth: 760 }}>
-                <h1 className="hero-title" style={{ margin: 0, fontSize: '3.1rem', lineHeight: 1.02, letterSpacing: '-0.04em' }}>Prompt Control</h1>
-                <p style={{ margin: '14px 0 0', color: '#cbd5e1', fontSize: 18, lineHeight: 1.7 }}>
-                  Write naturally. Let the optimizer refine it. Send it to Zoro.
+            <div className="hero-stack" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div style={{ maxWidth: 520 }}>
+                <h1 className="hero-title" style={{ margin: 0, fontSize: '1.6rem', lineHeight: 1.06, letterSpacing: '-0.02em' }}>Prompt Control</h1>
+                <p style={{ margin: '4px 0 0', color: '#dbe4f0', fontSize: 13, lineHeight: 1.45 }}>
+                  Write naturally, refine fast, send clean.
                 </p>
               </div>
-              <div style={{ display: 'grid', gap: 12, minWidth: 280, alignContent: 'start' }}>
+              <div style={{ display: 'grid', gap: 8, minWidth: 220, alignContent: 'start' }}>
                 <StatusPill label="Target session" value={selectedSessionLabel} tone="violet" />
                 <StatusPill label="Delivery" value={lastDeliveryMode === 'clipboard-fallback' ? 'Clipboard' : 'Control chat'} tone="blue" />
                 <StatusPill label="Optimization" value={isOptimizing ? 'Optimizing…' : optimizedPrompt ? 'Done' : 'Idle'} tone="neutral" />
@@ -203,7 +220,7 @@ export function App() {
           </div>
         </header>
 
-        <div className="prompt-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(360px, 0.95fr)', gap: 24, alignItems: 'start' }}>
+        <div className="prompt-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(360px, 0.95fr)', gap: 18, alignItems: 'start' }}>
           <section style={{ display: 'grid', gap: 24 }}>
             <Panel title="Compose" subtitle="Write naturally. The optimizer will refine structure and clarity.">
               <textarea
@@ -241,6 +258,30 @@ export function App() {
                 </ActionButton>
               </div>
 
+              {promptPacksError ? <InlineNotice tone="error">Prompt packs unavailable: {promptPacksError}</InlineNotice> : null}
+              {sessionsError ? <InlineNotice tone="error">Session list unavailable: {sessionsError}</InlineNotice> : null}
+              {contextError ? <InlineNotice tone="error">Task context unavailable: {contextError}</InlineNotice> : null}
+            </Panel>
+
+            <Panel title="Prompt pack" subtitle="Choose a God Mode framework to shape how your request gets optimized.">
+              <Field label="Selected pack">
+                <select value={selectedPromptPackId} onChange={(e) => setSelectedPromptPackId(e.target.value)} style={fieldStyle}>
+                  <option value="">None</option>
+                  {promptPacks.map((pack) => (
+                    <option key={pack.id} value={pack.id}>{pack.index}. {pack.title}</option>
+                  ))}
+                </select>
+              </Field>
+
+              {selectedPromptPack ? (
+                <InlineNotice tone="neutral">
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Using prompt pack: {selectedPromptPack.title}</div>
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{selectedPromptPack.prompt}</div>
+                </InlineNotice>
+              ) : (
+                <InlineNotice tone="neutral">No prompt pack selected. Your prompt will be optimized on its own.</InlineNotice>
+              )}
+              {promptPacksError ? <InlineNotice tone="error">Prompt packs unavailable: {promptPacksError}</InlineNotice> : null}
               {sessionsError ? <InlineNotice tone="error">Session list unavailable: {sessionsError}</InlineNotice> : null}
               {contextError ? <InlineNotice tone="error">Task context unavailable: {contextError}</InlineNotice> : null}
             </Panel>
@@ -292,10 +333,10 @@ export function App() {
 
 function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <section style={{ ...panelStyle, borderRadius: 28, padding: 24 }}>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 12, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#94a3b8' }}>{title}</div>
-        <div style={{ marginTop: 8, color: '#cbd5e1', lineHeight: 1.7, fontSize: 15 }}>{subtitle}</div>
+    <section style={{ ...panelStyle, borderRadius: 24, padding: 20 }}>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#a5b4c7' }}>{title}</div>
+        <div style={{ marginTop: 6, color: '#d7e1ee', lineHeight: 1.6, fontSize: 14 }}>{subtitle}</div>
       </div>
       {children}
     </section>
@@ -360,9 +401,9 @@ function StatusPill({ label, value, tone }: { label: string; value: string; tone
       : { background: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.08)', color: '#e2e8f0' }
 
   return (
-    <div style={{ borderRadius: 20, padding: '12px 14px', border: `1px solid ${palette.border}`, background: palette.background }}>
-      <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#94a3b8' }}>{label}</div>
-      <div style={{ marginTop: 6, color: palette.color, fontWeight: 600 }}>{value}</div>
+    <div style={{ borderRadius: 16, padding: '8px 10px', border: `1px solid ${palette.border}`, background: palette.background }}>
+      <div style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#94a3b8' }}>{label}</div>
+      <div style={{ marginTop: 4, color: palette.color, fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>{value}</div>
     </div>
   )
 }
@@ -373,39 +414,40 @@ function StatusPill({ label, value, tone }: { label: string; value: string; tone
 
 const fieldStyle: React.CSSProperties = {
   width: '100%',
-  borderRadius: 18,
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(255,255,255,0.05)',
+  borderRadius: 16,
+  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'rgba(255,255,255,0.08)',
   color: '#f8fafc',
-  padding: '14px 16px',
+  padding: '13px 15px',
   outline: 'none',
+  fontSize: 15,
 }
 
 const textAreaStyle: React.CSSProperties = {
   width: '100%',
-  borderRadius: 24,
-  border: '1px solid rgba(255,255,255,0.10)',
-  background: 'rgba(255,255,255,0.05)',
+  borderRadius: 20,
+  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'rgba(255,255,255,0.07)',
   color: '#f8fafc',
   padding: 18,
   outline: 'none',
   resize: 'vertical',
-  lineHeight: 1.7,
-  fontSize: 16,
+  lineHeight: 1.75,
+  fontSize: 17,
   boxSizing: 'border-box',
 }
 
 const refinedTextAreaStyle: React.CSSProperties = {
   width: '100%',
-  borderRadius: 24,
-  border: '1px solid rgba(167,139,250,0.18)',
-  background: 'rgba(2, 6, 23, 0.88)',
-  color: '#e2e8f0',
+  borderRadius: 20,
+  border: '1px solid rgba(192, 132, 252, 0.20)',
+  background: 'rgba(15, 23, 42, 0.78)',
+  color: '#edf2f7',
   padding: 18,
   outline: 'none',
   resize: 'vertical',
-  lineHeight: 1.75,
-  fontSize: 14,
+  lineHeight: 1.8,
+  fontSize: 16,
   minHeight: 320,
   boxSizing: 'border-box',
 }

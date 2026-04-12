@@ -3,6 +3,7 @@ import { loadTaskBoardSummary } from './task-context-store.mjs'
 import { sendPromptToGatewayHttp } from './gateway-http-bridge.mjs'
 import { fetchGatewaySessions } from './gateway-rpc-http.mjs'
 import { optimizePromptViaSkill } from './optimize-service.mjs'
+import { loadPromptPacks } from './prompt-pack-registry.mjs'
 
 function listFallbackSessions() {
   return [
@@ -133,6 +134,11 @@ const server = http.createServer(async (req, res) => {
       } catch {
         return sendJson(res, 200, listFallbackSessions())
       }
+    }
+
+    if (req.url === '/api/prompt-packs' && req.method === 'GET') {
+      const packs = await loadPromptPacks()
+      return sendJson(res, 200, packs)
     }
 
     if (req.url === '/api/optimize' && req.method === 'POST') {
