@@ -3,37 +3,6 @@ import { fetchPromptPacks, fetchSessions, fetchTaskContext, type PromptPackSumma
 import { sendPrompt } from './sendApi'
 import { optimizePromptRemotely, type PromptReturnStyle } from './optimizeApi'
 
-const shellBackground = {
-  background: `
-    radial-gradient(circle at 18% 18%, rgba(168, 85, 247, 0.20), transparent 28%),
-    radial-gradient(circle at 82% 0%, rgba(96, 165, 250, 0.16), transparent 24%),
-    radial-gradient(circle at 50% 100%, rgba(244, 114, 182, 0.10), transparent 30%),
-    linear-gradient(180deg, #131a2b 0%, #0f1726 100%)
-  `,
-  minHeight: '100vh',
-  color: '#f8fafc',
-}
-
-const panelStyle = {
-  background: 'rgba(30, 41, 59, 0.68)',
-  border: '1px solid rgba(255,255,255,0.10)',
-  boxShadow: '0 20px 60px rgba(15, 23, 42, 0.28)',
-  backdropFilter: 'blur(16px)',
-  WebkitBackdropFilter: 'blur(16px)',
-}
-
-const pillBase = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 8,
-  borderRadius: 999,
-  padding: '8px 14px',
-  border: '1px solid rgba(255,255,255,0.1)',
-  background: 'rgba(255,255,255,0.05)',
-  color: '#cbd5e1',
-  fontSize: 13,
-}
-
 export function App() {
   const [rawPrompt, setRawPrompt] = useState('')
   const [taskContext, setTaskContext] = useState<TaskContextSummary | null>(null)
@@ -107,7 +76,6 @@ export function App() {
   }, [rawPrompt])
 
   const finalPrompt = editableRefinedPrompt
-
   const selectedSessionLabel = sessions.find((session) => session.sessionKey === selectedSessionKey)?.label ?? 'Main session'
   const selectedPromptPack = promptPacks.find((pack) => pack.id === selectedPromptPackId) ?? null
 
@@ -194,23 +162,24 @@ export function App() {
   }
 
   return (
-    <div style={shellBackground}>
-      <div className="app-shell" style={{ margin: '0 auto', maxWidth: 1360, padding: '24px 20px 40px' }}>
-        <header style={{ ...panelStyle, borderRadius: 22, padding: 14, marginBottom: 14, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(124,58,237,0.10), transparent 45%, rgba(59,130,246,0.08))', pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ ...pillBase, width: 'fit-content', padding: '6px 10px', fontSize: 11, background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(167,139,250,0.22)', color: '#ddd6fe' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', boxShadow: '0 0 12px rgba(167,139,250,0.6)' }} />
+    <div className="pc-shell">
+      <div className="app-shell pc-app-shell">
+        <header className="pc-hero pc-panel">
+          <div className="pc-hero-overlay" />
+          <div className="pc-hero-content">
+            <div className="pc-product-pill">
+              <span className="pc-product-pill-dot" />
               Prompt Control
             </div>
-            <div className="hero-stack" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <div style={{ maxWidth: 520 }}>
-                <h1 className="hero-title" style={{ margin: 0, fontSize: '1.6rem', lineHeight: 1.06, letterSpacing: '-0.02em' }}>Prompt Control</h1>
-                <p style={{ margin: '4px 0 0', color: '#dbe4f0', fontSize: 13, lineHeight: 1.45 }}>
-                  Write naturally, refine fast, send clean.
+            <div className="hero-stack pc-hero-stack">
+              <div className="pc-hero-copy">
+                <h1 className="hero-title pc-hero-title">Prompt Control</h1>
+                <p className="pc-hero-subtitle">Write naturally, refine fast, send clean.</p>
+                <p className="pc-hero-description">
+                  A focused writing surface for turning rough intent into clear, high-leverage prompts before they reach Zoro.
                 </p>
               </div>
-              <div style={{ display: 'grid', gap: 8, minWidth: 220, alignContent: 'start' }}>
+              <div className="pc-status-grid">
                 <StatusPill label="Target session" value={selectedSessionLabel} tone="violet" />
                 <StatusPill label="Delivery" value={lastDeliveryMode === 'clipboard-fallback' ? 'Clipboard' : 'Control chat'} tone="blue" />
                 <StatusPill label="Optimization" value={isOptimizing ? 'Optimizing…' : optimizedPrompt ? 'Done' : 'Idle'} tone="neutral" />
@@ -220,20 +189,20 @@ export function App() {
           </div>
         </header>
 
-        <div className="prompt-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.05fr) minmax(360px, 0.95fr)', gap: 18, alignItems: 'start' }}>
-          <section style={{ display: 'grid', gap: 24 }}>
+        <div className="prompt-grid pc-grid">
+          <section className="pc-column">
             <Panel title="Compose" subtitle="Write naturally. The optimizer will refine structure and clarity.">
               <textarea
                 value={rawPrompt}
                 onChange={(e) => setRawPrompt(e.target.value)}
                 rows={16}
-                style={textAreaStyle}
+                className="pc-textarea"
                 placeholder="Tell Zoro what you actually want, in your own words..."
               />
 
-              <div className="field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14, marginTop: 18 }}>
+              <div className="field-grid pc-field-grid">
                 <Field label="Return style">
-                  <select value={returnStyle} onChange={(e) => setReturnStyle(e.target.value as PromptReturnStyle)} style={fieldStyle}>
+                  <select value={returnStyle} onChange={(e) => setReturnStyle(e.target.value as PromptReturnStyle)} className="pc-field-control">
                     <option value="clarity">Clarity</option>
                     <option value="technical">Technical</option>
                     <option value="execution">Execution</option>
@@ -242,7 +211,7 @@ export function App() {
                   </select>
                 </Field>
                 <Field label="Send to session">
-                  <select value={selectedSessionKey} onChange={(e) => setSelectedSessionKey(e.target.value)} style={fieldStyle}>
+                  <select value={selectedSessionKey} onChange={(e) => setSelectedSessionKey(e.target.value)} className="pc-field-control">
                     {sessions.length === 0 ? (
                       <option value="agent:main:main">Main session (fallback)</option>
                     ) : sessions.map((session) => (
@@ -252,7 +221,7 @@ export function App() {
                 </Field>
               </div>
 
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
+              <div className="pc-actions-row">
                 <ActionButton onClick={() => void handleOptimize()} disabled={isOptimizing || !rawPrompt.trim()} primary>
                   {isOptimizing ? 'Optimizing…' : 'Optimize'}
                 </ActionButton>
@@ -265,7 +234,7 @@ export function App() {
 
             <Panel title="Prompt pack" subtitle="Choose a God Mode framework to shape how your request gets optimized.">
               <Field label="Selected pack">
-                <select value={selectedPromptPackId} onChange={(e) => setSelectedPromptPackId(e.target.value)} style={fieldStyle}>
+                <select value={selectedPromptPackId} onChange={(e) => setSelectedPromptPackId(e.target.value)} className="pc-field-control">
                   <option value="">None</option>
                   {promptPacks.map((pack) => (
                     <option key={pack.id} value={pack.id}>{pack.index}. {pack.title}</option>
@@ -275,8 +244,8 @@ export function App() {
 
               {selectedPromptPack ? (
                 <InlineNotice tone="neutral">
-                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Using prompt pack: {selectedPromptPack.title}</div>
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>{selectedPromptPack.prompt}</div>
+                  <div className="pc-pack-title">Using prompt pack: {selectedPromptPack.title}</div>
+                  <div className="pc-prewrap">{selectedPromptPack.prompt}</div>
                 </InlineNotice>
               ) : (
                 <InlineNotice tone="neutral">No prompt pack selected. Your prompt will be optimized on its own.</InlineNotice>
@@ -287,18 +256,18 @@ export function App() {
             </Panel>
           </section>
 
-          <aside style={{ display: 'grid', gap: 24 }}>
-            <Panel title="Optimized prompt" subtitle="Edit before sending. The final version is what gets delivered.">
+          <aside className="pc-column">
+            <Panel title="Optimized prompt" subtitle="Edit before sending. The final version is what gets delivered." featured>
               <textarea
                 value={editableRefinedPrompt}
                 onChange={(e) => handleEditableChange(e.target.value)}
                 rows={18}
-                style={refinedTextAreaStyle}
+                className="pc-textarea pc-textarea-refined"
                 placeholder="Your optimized prompt will appear here, and you can edit it before sending."
               />
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
-                <div style={{ color: hasManualEdits ? '#ddd6fe' : '#94a3b8', fontSize: 13 }}>
+              <div className="pc-inline-row">
+                <div className={`pc-status-copy ${hasManualEdits ? 'is-accent' : ''}`}>
                   {hasManualEdits ? 'Manual edits active.' : isOptimizing ? 'Optimizing…' : optimizedPrompt ? 'Using optimized version.' : 'Click Optimize to generate a refined prompt.'}
                 </div>
                 <ActionButton onClick={resetRefinedPrompt} disabled={!hasManualEdits}>
@@ -308,7 +277,7 @@ export function App() {
             </Panel>
 
             <Panel title="Send" subtitle="Deliver to Zoro or copy to clipboard.">
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div className="pc-actions-row">
                 <ActionButton onClick={() => void handleSend()} disabled={isSending || !finalPrompt.trim() || !selectedSessionKey} primary>
                   {isSending ? 'Sending…' : 'Send to Zoro'}
                 </ActionButton>
@@ -327,16 +296,12 @@ export function App() {
   )
 }
 
-// ============================================================================
-// UI Components
-// ============================================================================
-
-function Panel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function Panel({ title, subtitle, children, featured = false }: { title: string; subtitle: string; children: React.ReactNode; featured?: boolean }) {
   return (
-    <section style={{ ...panelStyle, borderRadius: 24, padding: 20 }}>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#a5b4c7' }}>{title}</div>
-        <div style={{ marginTop: 6, color: '#d7e1ee', lineHeight: 1.6, fontSize: 14 }}>{subtitle}</div>
+    <section className={`pc-panel pc-section-panel ${featured ? 'is-featured' : ''}`}>
+      <div className="pc-panel-header">
+        <div className="pc-panel-title">{title}</div>
+        <div className="pc-panel-subtitle">{subtitle}</div>
       </div>
       {children}
     </section>
@@ -345,8 +310,8 @@ function Panel({ title, subtitle, children }: { title: string; subtitle: string;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label style={{ display: 'grid', gap: 8 }}>
-      <span style={{ fontSize: 12, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#94a3b8' }}>{label}</span>
+    <label className="pc-field">
+      <span className="pc-field-label">{label}</span>
       {children}
     </label>
   )
@@ -358,21 +323,7 @@ function ActionButton({ children, onClick, disabled, primary = false }: { childr
       type="button"
       onClick={onClick}
       disabled={disabled}
-      style={{
-        borderRadius: 999,
-        padding: '12px 18px',
-        letterSpacing: '0.01em',
-        border: primary ? '1px solid rgba(167,139,250,0.35)' : '1px solid rgba(255,255,255,0.1)',
-        background: disabled
-          ? 'rgba(255,255,255,0.06)'
-          : primary
-            ? 'linear-gradient(135deg, rgba(124,58,237,0.38), rgba(59,130,246,0.22))'
-            : 'rgba(255,255,255,0.06)',
-        color: disabled ? '#64748b' : '#f8fafc',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        fontWeight: 600,
-        boxShadow: primary && !disabled ? '0 18px 36px rgba(76, 29, 149, 0.25)' : 'none',
-      }}
+      className={`pc-button ${primary ? 'is-primary' : 'is-secondary'}`}
     >
       {children}
     </button>
@@ -380,74 +331,18 @@ function ActionButton({ children, onClick, disabled, primary = false }: { childr
 }
 
 function InlineNotice({ children, tone }: { children: React.ReactNode; tone: 'success' | 'error' | 'neutral' }) {
-  const palette = tone === 'success'
-    ? { color: '#bbf7d0', border: 'rgba(34,197,94,0.2)', background: 'rgba(34,197,94,0.10)' }
-    : tone === 'error'
-      ? { color: '#fecaca', border: 'rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.10)' }
-      : { color: '#cbd5e1', border: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }
-
   return (
-    <div style={{ marginTop: 16, borderRadius: 18, padding: '12px 14px', border: `1px solid ${palette.border}`, background: palette.background, color: palette.color }}>
+    <div className={`pc-notice is-${tone}`}>
       {children}
     </div>
   )
 }
 
 function StatusPill({ label, value, tone }: { label: string; value: string; tone: 'violet' | 'blue' | 'neutral' }) {
-  const palette = tone === 'violet'
-    ? { background: 'rgba(124,58,237,0.16)', border: 'rgba(167,139,250,0.25)', color: '#ede9fe' }
-    : tone === 'blue'
-      ? { background: 'rgba(59,130,246,0.14)', border: 'rgba(125,211,252,0.22)', color: '#dbeafe' }
-      : { background: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.08)', color: '#e2e8f0' }
-
   return (
-    <div style={{ borderRadius: 16, padding: '8px 10px', border: `1px solid ${palette.border}`, background: palette.background }}>
-      <div style={{ fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#94a3b8' }}>{label}</div>
-      <div style={{ marginTop: 4, color: palette.color, fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>{value}</div>
+    <div className={`pc-status-pill is-${tone}`}>
+      <div className="pc-status-pill-label">{label}</div>
+      <div className="pc-status-pill-value">{value}</div>
     </div>
   )
-}
-
-// ============================================================================
-// Styles
-// ============================================================================
-
-const fieldStyle: React.CSSProperties = {
-  width: '100%',
-  borderRadius: 16,
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(255,255,255,0.08)',
-  color: '#f8fafc',
-  padding: '13px 15px',
-  outline: 'none',
-  fontSize: 15,
-}
-
-const textAreaStyle: React.CSSProperties = {
-  width: '100%',
-  borderRadius: 20,
-  border: '1px solid rgba(255,255,255,0.12)',
-  background: 'rgba(255,255,255,0.07)',
-  color: '#f8fafc',
-  padding: 18,
-  outline: 'none',
-  resize: 'vertical',
-  lineHeight: 1.75,
-  fontSize: 17,
-  boxSizing: 'border-box',
-}
-
-const refinedTextAreaStyle: React.CSSProperties = {
-  width: '100%',
-  borderRadius: 20,
-  border: '1px solid rgba(192, 132, 252, 0.20)',
-  background: 'rgba(15, 23, 42, 0.78)',
-  color: '#edf2f7',
-  padding: 18,
-  outline: 'none',
-  resize: 'vertical',
-  lineHeight: 1.8,
-  fontSize: 16,
-  minHeight: 320,
-  boxSizing: 'border-box',
 }
